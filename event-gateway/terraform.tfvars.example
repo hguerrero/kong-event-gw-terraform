@@ -1,0 +1,35 @@
+# ============================================================================
+# Konnect Configuration
+# ============================================================================
+# Copy this file to terraform.tfvars and fill in your values
+
+konnect_server_url = "https://us.api.konghq.tech"
+konnect_token      = "YOUR_KONNECT_PAT"
+
+# ============================================================================
+# Kong Identity Configuration
+# ============================================================================
+
+auth_server_name        = "Appointments Dev"
+auth_server_audience    = "http://myhttpbin.dev"
+auth_server_description = "Auth server for the Appointment dev environment"
+
+scope_name        = "kafka"
+scope_description = "Scope to test Kong Identity"
+
+client_name = "Client"
+
+access_token_duration = 3600
+id_token_duration     = 3600
+
+# ============================================================================
+# Event Gateway Configuration
+# ============================================================================
+
+event_gateway_name = "event_gateway_terraform"
+
+backend_cluster_bootstrap_servers = [
+  "kafka1:9092",
+  "kafka2:9092",
+  "kafka3:9092"
+]
