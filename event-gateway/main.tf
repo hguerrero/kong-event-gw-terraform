@@ -13,37 +13,56 @@ terraform {
 # Kong Identity Resources
 # ============================================================================
 
-# # Auth Server
-# resource "konnect_auth_server" "main" {
-#   provider    = konnect-beta
-#   name        = var.auth_server_name
-#   audience    = var.auth_server_audience
-#   description = var.auth_server_description
-# }
+# Auth Server
+resource "konnect_auth_server" "kafka_auth_server" {
+  provider    = konnect-beta
+  name        = var.auth_server_name
+  audience    = var.auth_server_audience
+  description = var.auth_server_description
+}
 
-# # Scope for Kafka authentication
-# resource "konnect_auth_server_scopes" "kafka" {
-#   provider            = konnect-beta
-#   auth_server_id      = konnect_auth_server.main.id
-#   name                = var.scope_name
-#   description         = var.scope_description
-#   default             = false
-#   include_in_metadata = false
-#   enabled             = true
-# }
+# Scope for Kafka authentication
+resource "konnect_auth_server_scopes" "kafka_scope" {
+  provider            = konnect-beta
+  auth_server_id      = konnect_auth_server.kafka_auth_server.id
+  name                = var.scope_name
+  description         = var.scope_description
+  default             = false
+  include_in_metadata = false
+  enabled             = true
 
-# # Client for machine-to-machine authentication
-# resource "konnect_auth_server_clients" "main" {
-#   provider              = konnect-beta
-#   auth_server_id        = konnect_auth_server.main.id
-#   name                  = var.client_name
-#   grant_types           = ["client_credentials"]
-#   allow_all_scopes      = false
-#   allow_scopes          = [konnect_auth_server_scopes.kafka.id]
-#   access_token_duration = var.access_token_duration
-#   id_token_duration     = var.id_token_duration
-#   response_types        = ["id_token", "token"]
-# }
+  depends_on = [konnect_auth_server.kafka_auth_server]
+}
+
+# Client 1 for machine-to-machine authentication
+resource "konnect_auth_server_clients" "kafka_client_1" {
+  provider              = konnect-beta
+  auth_server_id        = konnect_auth_server.kafka_auth_server.id
+  name                  = var.client_name_1
+  grant_types           = ["client_credentials"]
+  allow_all_scopes      = false
+  allow_scopes          = [konnect_auth_server_scopes.kafka_scope.id]
+  access_token_duration = var.access_token_duration
+  id_token_duration     = var.id_token_duration
+  response_types        = ["id_token", "token"]
+
+  depends_on = [konnect_auth_server.kafka_auth_server]
+}
+
+# Client 2 for machine-to-machine authentication
+resource "konnect_auth_server_clients" "kafka_client_2" {
+  provider              = konnect-beta
+  auth_server_id        = konnect_auth_server.kafka_auth_server.id
+  name                  = var.client_name_2
+  grant_types           = ["client_credentials"]
+  allow_all_scopes      = false
+  allow_scopes          = [konnect_auth_server_scopes.kafka_scope.id]
+  access_token_duration = var.access_token_duration
+  id_token_duration     = var.id_token_duration
+  response_types        = ["id_token", "token"]
+
+  depends_on = [konnect_auth_server.kafka_auth_server]
+}
 
 # ============================================================================
 # Event Gateway Resource
@@ -54,12 +73,11 @@ resource "konnect_event_gateway" "event_gateway_terraform" {
   provider = konnect-beta
   name     = var.event_gateway_name
 
-  #   # This ensures the Event Gateway is created after Kong Identity is set up
-  #   depends_on = [
-  #     konnect_auth_server.main,
-  #     konnect_auth_server_scopes.kafka,
-  #     konnect_auth_server_clients.main
-  #   ]
+  # This ensures the Event Gateway is created after Kong Identity is set up
+  depends_on = [
+    konnect_auth_server.kafka_auth_server,
+    konnect_auth_server_scopes.kafka_scope
+  ]
 }
 
 resource "konnect_event_gateway_backend_cluster" "backend_cluster" {
@@ -96,44 +114,36 @@ resource "konnect_event_gateway_virtual_cluster" "virtual_cluster" {
     id = konnect_event_gateway_backend_cluster.backend_cluster.id
   }
 
-  acl_mode  = "enforce_on_gateway"
-#   acl_mode  = "passthrough"
+  acl_mode = "enforce_on_gateway"
   dns_label = "vcluster"
 
   namespace = {
     prefix = "my-"
-    mode = "hide_prefix"
+    mode   = "hide_prefix"
     additional = {
       consumer_groups = [{}]
-      topics = [ {
+      topics = [{
         exact_list = {
           conflict = "warn"
           exact_list = [{
             backend = "extra_topic"
           }]
         }
-      } ]
+      }]
     }
   }
 
-  authentication = [{
-    sasl_plain = {
-      mediation = "terminate"
-      principals = [
-        { username = "user1", password = "$${env['USER1_PASSWORD']}" },
-        { username = "user2", password = "$${env['USER2_PASSWORD']}" }
-      ]
-    }
-    },
+  authentication = [
     {
       oauth_bearer = {
         mediation = "terminate"
         jwks = {
-            endpoint = "https://g4okh9m7gkie4430.us.identity.konghq.com/auth/.well-known/jwks"
-            timeout = "1s"
+          endpoint = "${konnect_auth_server.kafka_auth_server.issuer}/.well-known/jwks"
+          timeout  = "1s"
         }
       }
-  }]
+    }
+  ]
 
   depends_on = [konnect_event_gateway.event_gateway_terraform, konnect_event_gateway_backend_cluster.backend_cluster]
 }
@@ -173,76 +183,76 @@ resource "konnect_event_gateway_listener_policy_forward_to_virtual_cluster" "for
 
 // Add ACL policy for user1
 resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u1" {
-    provider = konnect-beta
-    name = "acl_topic_policy1"
-    description = "ACL policy for ensuring access to topics based on principals"
-    gateway_id = konnect_event_gateway.event_gateway_terraform.id
-    virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
+  provider           = konnect-beta
+  name               = "acl_topic_policy1"
+  description        = "ACL policy for ensuring access to topics based on principals"
+  gateway_id         = konnect_event_gateway.event_gateway_terraform.id
+  virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
 
-    condition = "context.auth.principal.name == 'user1'"
-    config = {
-        rules = [
-            {
-                action = "allow"
-                operations = [
-                    { name = "describe" },
-                    { name = "read" },
-                    { name = "write" }
-                ]
-                resource_type = "topic"
-                resource_names = [{
-                    match = "*"
-                }]
-            }
+  condition = "context.auth.principal.name == '${konnect_auth_server_clients.kafka_client_1.id}'"
+  config = {
+    rules = [
+      {
+        action = "allow"
+        operations = [
+          { name = "describe" },
+          { name = "read" },
+          { name = "write" }
         ]
-    }
+        resource_type = "topic"
+        resource_names = [{
+          match = "*"
+        }]
+      }
+    ]
+  }
 }
 
 // Add ACL policy for user2
 resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u2" {
-    provider = konnect-beta
-    name = "acl_topic_policy2"
-    description = "ACL policy for ensuring access to topics based on principals"
-    gateway_id = konnect_event_gateway.event_gateway_terraform.id
-    virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
+  provider           = konnect-beta
+  name               = "acl_topic_policy2"
+  description        = "ACL policy for ensuring access to topics based on principals"
+  gateway_id         = konnect_event_gateway.event_gateway_terraform.id
+  virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
 
-    condition = "context.auth.principal.name == 'user2'"
-    config = {
-        rules = [
-            {
-                action = "allow"
-                operations = [
-                    { name = "describe" }
-                ]
-                resource_type = "topic"
-                resource_names = [{
-                    match = "topic"
-                },{
-                    match = "topic-encrypted"
-                },{
-                    match = "extra_topic"
-                }]
-            },{
-                action = "allow"
-                operations = [
-                    { name = "read" }
-                ]
-                resource_type = "topic"
-                resource_names = [{
-                    match = "topic"
-                }]
-            }
+  condition = "context.auth.principal.name == '${konnect_auth_server_clients.kafka_client_2.id}'"
+  config = {
+    rules = [
+      {
+        action = "allow"
+        operations = [
+          { name = "describe" }
         ]
-    }
+        resource_type = "topic"
+        resource_names = [{
+          match = "topic"
+          }, {
+          match = "topic-encrypted"
+          }, {
+          match = "extra_topic"
+        }]
+        }, {
+        action = "allow"
+        operations = [
+          { name = "read" }
+        ]
+        resource_type = "topic"
+        resource_names = [{
+          match = "topic"
+        }]
+      }
+    ]
+  }
 }
 
 // Add skip record policy on orders topic based on header & principal
 resource "konnect_event_gateway_consume_policy_skip_record" "skip_record" {
-    provider = konnect-beta
-    name = "skip_records"
-    description = "skip records"
-    gateway_id = konnect_event_gateway.event_gateway_terraform.id
-    virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
+  provider           = konnect-beta
+  name               = "skip_records"
+  description        = "skip records"
+  gateway_id         = konnect_event_gateway.event_gateway_terraform.id
+  virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
 
-    condition = "record.headers['internal'] == 'true' && context.auth.principal.name != 'user1'"
+  condition = "record.headers['internal'] == 'true' && context.auth.principal.name != '${konnect_auth_server_clients.kafka_client_1.id}'"
 }

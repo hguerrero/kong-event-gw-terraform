@@ -17,7 +17,8 @@ auth_server_description = "Auth server for the Appointment dev environment"
 scope_name        = "kafka"
 scope_description = "Scope to test Kong Identity"
 
-client_name = "Client"
+client_name_1 = "Client 1"
+client_name_2 = "Client 2"
 
 access_token_duration = 3600
 id_token_duration     = 3600

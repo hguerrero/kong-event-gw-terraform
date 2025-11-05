@@ -48,10 +48,16 @@ variable "scope_description" {
   default     = "Scope to test Kong Identity"
 }
 
-variable "client_name" {
+variable "client_name_1" {
   type        = string
   description = "Name of the client for machine-to-machine authentication"
-  default     = "Client"
+  default     = "Client1"
+}
+
+variable "client_name_2" {
+  type        = string
+  description = "Name of the client for machine-to-machine authentication"
+  default     = "Client2"
 }
 
 variable "access_token_duration" {
