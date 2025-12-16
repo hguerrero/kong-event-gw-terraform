@@ -3,8 +3,8 @@ terraform {
 
   required_providers {
     konnect-beta = {
-      source  = "Kong/konnect-beta"
-      version = "~> 0.11.1"
+      source  = "kong/konnect-beta"
+      version = "0.13.0"
     }
   }
 }
@@ -69,6 +69,11 @@ resource "konnect_auth_server_clients" "kafka_client_2" {
 # ============================================================================
 
 # Event Gateway - configured with Kong Identity
+import {
+  to = konnect_event_gateway.event_gateway_terraform
+  id = var.event_gateway_id
+}
+
 resource "konnect_event_gateway" "event_gateway_terraform" {
   provider = konnect-beta
   name     = var.event_gateway_name
@@ -82,21 +87,18 @@ resource "konnect_event_gateway" "event_gateway_terraform" {
 
 resource "konnect_event_gateway_backend_cluster" "backend_cluster" {
   provider    = konnect-beta
-  name        = "confluent-backend-cluster"
-  description = "confluent cloud cluster"
+  name        = "local-backend-cluster"
+  description = "local cluster"
   gateway_id  = konnect_event_gateway.event_gateway_terraform.id
 
   authentication = {
-    sasl_plain = {
-      username = "$${env['KAFKA_USERNAME']}"
-      password = "$${env['KAFKA_PASSWORD']}"
-    }
+    anonymous = {}
   }
 
   bootstrap_servers = var.backend_cluster_bootstrap_servers
 
   tls = {
-    enabled = true
+    enabled = false
   }
 
   insecure_allow_anonymous_virtual_cluster_auth = true
@@ -114,11 +116,11 @@ resource "konnect_event_gateway_virtual_cluster" "virtual_cluster" {
     id = konnect_event_gateway_backend_cluster.backend_cluster.id
   }
 
-  acl_mode = "enforce_on_gateway"
+  acl_mode  = "enforce_on_gateway"
   dns_label = "vcluster"
 
   namespace = {
-    prefix = "my-"
+    prefix = "internal-"
     mode   = "hide_prefix"
     additional = {
       consumer_groups = [{}]
@@ -169,7 +171,8 @@ resource "konnect_event_gateway_listener_policy_forward_to_virtual_cluster" "for
 
   config = {
     port_mapping = {
-      advertised_host = "localhost"
+      advertised_host = "host.docker.internal"
+      bootstrap_port  = "none"
       destination = {
         virtual_cluster_reference_by_id = {
           id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
@@ -189,13 +192,14 @@ resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u1" {
   gateway_id         = konnect_event_gateway.event_gateway_terraform.id
   virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
 
-  condition = "context.auth.principal.name == '${konnect_auth_server_clients.kafka_client_1.id}'"
+  condition = "context.auth.principal.name == '${konnect_auth_server_clients.kafka_client_1.id}' || context.auth.principal.name == 'user1'"
   config = {
     rules = [
       {
         action = "allow"
         operations = [
           { name = "describe" },
+          { name = "create" },
           { name = "read" },
           { name = "write" }
         ]
@@ -203,6 +207,17 @@ resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u1" {
         resource_names = [{
           match = "*"
         }]
+      },
+      {
+        action = "allow"
+        operations = [
+          { name = "read" },
+          { name = "describe_configs" }
+        ]
+        resource_type = "group"
+        resource_names = [
+          { match = "*" }
+        ]
       }
     ]
   }
@@ -216,7 +231,7 @@ resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u2" {
   gateway_id         = konnect_event_gateway.event_gateway_terraform.id
   virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
 
-  condition = "context.auth.principal.name == '${konnect_auth_server_clients.kafka_client_2.id}'"
+  condition = "context.auth.principal.name == '${konnect_auth_server_clients.kafka_client_2.id}' || context.auth.principal.name == 'user2'"
   config = {
     rules = [
       {
@@ -229,10 +244,9 @@ resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u2" {
           match = "topic"
           }, {
           match = "topic-encrypted"
-          }, {
-          match = "extra_topic"
         }]
-        }, {
+      },
+      {
         action = "allow"
         operations = [
           { name = "read" }
@@ -241,6 +255,17 @@ resource "konnect_event_gateway_cluster_policy_acls" "acl_topic_policy_u2" {
         resource_names = [{
           match = "topic"
         }]
+      },
+      {
+        action = "allow"
+        operations = [
+          { name = "read" },
+          { name = "describe_configs" }
+        ]
+        resource_type = "group"
+        resource_names = [
+          { match = "*" }
+        ]
       }
     ]
   }
@@ -254,5 +279,5 @@ resource "konnect_event_gateway_consume_policy_skip_record" "skip_record" {
   gateway_id         = konnect_event_gateway.event_gateway_terraform.id
   virtual_cluster_id = konnect_event_gateway_virtual_cluster.virtual_cluster.id
 
-  condition = "record.headers['internal'] == 'true' && context.auth.principal.name != '${konnect_auth_server_clients.kafka_client_1.id}'"
+  condition = "record.headers['internal'] == 'true' && context.auth.principal.name != '${konnect_auth_server_clients.kafka_client_1.id}' && context.auth.principal.name != 'user1'"
 }

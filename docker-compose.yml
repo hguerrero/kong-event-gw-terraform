@@ -4,12 +4,12 @@ services:
   # Kong Event Gateway
   kong-event-gateway:
     image: kong/kong-event-gateway-dev:latest
-    container_name: knep-konnect
+    container_name: keg-konnect
     ports:
       - "19092-19192:19092-19192"
       - "29092-29192:29092-29192"
-      - "8080:8080"
-      - "8443:8443"
+      # - "8080:8080"
+      # - "8443:8443"
     env_file: 
       - "konnect.env"
     environment:

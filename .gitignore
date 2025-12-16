@@ -30,3 +30,4 @@ Thumbs.db
 .env.local
 
 konnect.env
+client?-config.properties

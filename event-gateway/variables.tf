@@ -82,6 +82,11 @@ variable "event_gateway_name" {
   default     = "event_gateway_terraform"
 }
 
+variable "event_gateway_id" {
+  type        = string
+  description = "ID of the Event Gateway instance"
+}
+
 variable "backend_cluster_bootstrap_servers" {
   description = "List of bootstrap servers"
   type        = list(string)
