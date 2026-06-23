@@ -28,6 +28,24 @@ Thumbs.db
 # Environment files
 .env
 .env.local
+.env.*
+*.env
+*.local
 
 konnect.env
-client?-config.properties
+konnect*.env
+client*-config.properties
+*-config.properties
+!*-config.properties.example
+
+# Common secret/key material
+*.crt
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ecdsa
+id_ed25519

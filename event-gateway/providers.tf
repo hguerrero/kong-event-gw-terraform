@@ -1,5 +1,9 @@
 
-provider "konnect-beta" {
-  server_url = var.konnect_server_url
+provider "konnect" {
+  server_url            = var.konnect_server_url
   personal_access_token = var.konnect_token
 }
+
+provider "tls" {}
+
+provider "local" {}

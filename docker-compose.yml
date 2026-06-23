@@ -1,10 +1,16 @@
-name: kong_event_gw_with_confluent
+name: kong_event_gw_with_terraform
+
+networks:
+  keg:
+    name: keg-network # this needs to be on the same network as your kafka cluster
+    external: true
 
 services:
   # Kong Event Gateway
   kong-event-gateway:
-    image: kong/kong-event-gateway-dev:latest
-    container_name: keg-konnect
+    image: kong/kong-event-gateway:latest
+    container_name: keg-data-plane
+    restart: unless-stopped
     ports:
       - "19092-19192:19092-19192"
       - "29092-29192:29092-29192"
@@ -22,3 +28,5 @@ services:
       retries: 5
     volumes:
       - ./config/certs:/var/tls
+    networks:
+      - keg
