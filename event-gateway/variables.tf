@@ -5,7 +5,7 @@
 variable "konnect_server_url" {
   type        = string
   description = "Which Konnect instance to point at"
-  default     = "https://us.api.konghq.tech"
+  default     = "https://us.api.konghq.com"
 }
 
 variable "konnect_token" {
@@ -80,6 +80,12 @@ variable "event_gateway_name" {
   type        = string
   description = "Name of the Event Gateway instance"
   default     = "event_gateway_terraform"
+}
+
+variable "event_gateway_description" {
+  type        = string
+  description = "Description of the Event Gateway instance"
+  default     = "Event Gateway managed by Terraform"
 }
 
 variable "backend_cluster_bootstrap_servers" {

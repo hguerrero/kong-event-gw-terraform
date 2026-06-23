@@ -1,0 +1,8 @@
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=OAUTHBEARER
+sasl.login.callback.handler.class=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler
+sasl.oauthbearer.token.endpoint.url=<YOUR_AUTH_SERVER_TOKEN_ENDPOINT>
+sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required \
+    clientId="<YOUR_CLIENT_ID>" \
+    clientSecret="<YOUR_CLIENT_SECRET>" \
+    scope="kafka";

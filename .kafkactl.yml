@@ -23,3 +23,15 @@ contexts:
         enabled: true
         username: user3
         password: password3
+    client1:
+      brokers:
+        - localhost:19092
+      sasl:
+        enabled: true
+        mechanism: oauth
+        tokenprovider:
+          plugin: generic
+          options:
+            script: ./get-token.sh
+            args:
+              - kafka
